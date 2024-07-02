@@ -1,15 +1,15 @@
 name: "Build 🔨"
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - ready_for_review
-    branches: [ main ]
+  # push:
+  #   branches: [ main ]
+  # pull_request:
+  #   types:
+  #     - opened
+  #     - reopened
+  #     - synchronize
+  #     - ready_for_review
+  #   branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -61,7 +61,29 @@ jobs:
           retry_on: error
           timeout_minutes: 60
           command: |
-            xcodebuild build -project "Swiftfin.xcodeproj" \
+            xcodebuild clean build -project "Swiftfin.xcodeproj" \
             -scheme "${{ matrix.scheme }}" \
             -clonedSourcePackagesDirPath PackageCache \
+            -configuration Release \
+            -derivedDataPath build/derived_data \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+      - name: Create Payload Directory
+        run: mkdir -p build/Payload
+
+      - name: Copy App to Payload
+        run: cp -r build/derived_data/Build/Products/Release-appletvos/"Swiftfin tvOS.app" build/Payload
+
+      - name: Fake Code Sign the App
+        run: ldid -S build/Payload/"Swiftfin tvOS.app"/"Swiftfin tvOS"
+
+      - name: Package IPA
+        run: |
+          cd build
+          zip -r Swiftfin-tvOS.ipa Payload
+
+      - name: Upload IPA as Artifact
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: Swiftfin-tvOS-ipa
+          path: build/Swiftfin-tvOS.ipa
